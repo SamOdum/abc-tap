@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ABC Tap</title>
+<meta name="theme-color" content="#ffc93c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ABC Tap">
+<meta name="description" content="Tap the big button to step through the alphabet and the numbers 1 to 20. A first letters and counting game for three-year-olds.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/andika-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/baloo2-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* Fonts are served from this folder (Andika and Baloo 2, SIL Open Font License), so the game loads nothing from another site and works offline. */
+@font-face{font-family:"Andika";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/andika-700-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Baloo 2";font-style:normal;font-weight:400 800;font-display:swap;src:url(fonts/baloo2-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* Layout idea: one screen, one flashcard. The whole room changes colour with each card;
+   the paper card and the big ink button stay put so small hands always know where to tap. */
+:root {
+  color-scheme: light;
+  --ink: #1e2440;
+  --paper: #fffdf5;
+  --room: #ffc93c;          /* set per card from script */
+  --shade: rgba(30, 36, 64, .16);
+  --quiet: rgba(30, 36, 64, .62);
+  --cols: 13;               /* strip columns, set per track */
+  --font-letter: "Andika", "Comic Sans MS", "Trebuchet MS", sans-serif;
+  --font-ui: "Baloo 2", "Trebuchet MS", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--room);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  transition: background-color .35s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none; -webkit-user-select: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+button:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; }
+
+.app {
+  height: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px 16px 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* top bar (for the grown-up) */
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.seg { display: flex; background: var(--shade); border-radius: 999px; padding: 4px; gap: 2px; }
+.seg button, .sound {
+  background: transparent; border-radius: 999px;
+  padding: 6px 10px; font-weight: 600; font-size: 14px; line-height: 1.3; white-space: nowrap;
+}
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.sound { background: var(--shade); font-size: 18px; padding: 6px 10px; }
+
+/* the flashcard */
+.card {
+  flex: 1 1 auto; min-height: 0;
+  background: var(--paper);
+  border-radius: 36px;
+  box-shadow: 0 10px 0 var(--shade);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 12px;
+  width: 100%;
+  overflow: hidden;
+}
+.letters {
+  font-family: var(--font-letter); font-weight: 700;
+  font-size: clamp(96px, 30vh, 230px); line-height: 1;
+  display: flex; gap: .18em; align-items: baseline;
+}
+.letters .small { color: var(--room); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; transition: color .35s ease; }
+.pic { font-size: clamp(56px, 13vh, 110px); line-height: 1.15; text-align: center; }
+.pic.count { font-size: clamp(28px, 6vh, 50px); line-height: 1.25; letter-spacing: .08em; }
+.pic.count.many { font-size: clamp(17px, 5.4vw, 34px); letter-spacing: .04em; white-space: nowrap; }
+.word { font-weight: 800; font-size: clamp(30px, 6vh, 48px); line-height: 1.1; letter-spacing: .02em; text-align: center; }
+.word b { background: var(--room); border-radius: 10px; padding: 0 .12em; transition: background-color .35s ease; }
+.hint { font-size: 14px; font-weight: 600; color: var(--quiet); margin-top: 4px; }
+
+.pop { animation: pop .38s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes pop { from { transform: scale(.82); } to { transform: scale(1); } }
+
+/* controls */
+.controls { display: flex; gap: 12px; align-items: stretch; }
+.back {
+  flex: 0 0 76px; border-radius: 28px;
+  background: var(--paper); box-shadow: 0 6px 0 var(--shade);
+  font-size: 30px; font-weight: 800;
+}
+.next {
+  flex: 1; min-height: 92px; border-radius: 28px;
+  background: var(--ink); color: var(--paper);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .35);
+  font-size: 36px; font-weight: 800; letter-spacing: .02em;
+}
+.back:active, .next:active { transform: translateY(5px); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+
+/* strip: where we are, tap to jump */
+.strip { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 4px; }
+.strip button {
+  height: clamp(24px, 6.4vw, 38px); border-radius: 8px; padding: 0;
+  background: var(--shade);
+  font-family: var(--font-letter); font-weight: 700; font-size: clamp(11px, 3.4vw, 17px);
+}
+.strip button.seen { background: var(--paper); }
+.strip button.now { background: var(--ink); color: var(--paper); }
+
+@media (max-height: 560px) {
+  .next { min-height: 68px; font-size: 28px; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop { animation: none; }
+  body, .letters .small, .word b { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Track">
+      <button type="button" id="track-abc" aria-pressed="true" aria-label="Letters">ABC</button>
+      <button type="button" id="track-num" aria-pressed="false" aria-label="Numbers">123</button>
+    </div>
+    <div class="seg" role="group" aria-label="Order">
+      <button type="button" id="mode-order" aria-pressed="true">In order</button>
+      <button type="button" id="mode-mix" aria-pressed="false">Mix up</button>
+    </div>
+    <button type="button" class="sound" id="sound" aria-pressed="true" aria-label="Voice on">🔊</button>
+  </div>
+
+  <button type="button" class="card" id="card" aria-label="Hear it again">
+    <div class="letters" id="letters"><span>A</span><span class="small">a</span></div>
+    <div class="pic" id="pic">🍎</div>
+    <div class="word" id="word"><b>A</b>pple</div>
+    <div class="hint" id="hint">Tap the card to hear it again</div>
+  </button>
+
+  <div class="controls">
+    <button type="button" class="back" id="back" aria-label="Back one card">◀</button>
+    <button type="button" class="next" id="next">Next ▶</button>
+  </div>
+
+  <div class="strip" id="strip" aria-label="All cards"></div>
+</main>
+
+<script>
+(function () {
+  /* letters: [letter, picture, word] */
+  var ABC = [
+    ["A", "🍎", "Apple"], ["B", "⚽", "Ball"], ["C", "🐱", "Cat"], ["D", "🐶", "Dog"],
+    ["E", "🥚", "Egg"], ["F", "🐟", "Fish"], ["G", "🐐", "Goat"], ["H", "🎩", "Hat"],
+    ["I", "🍦", "Ice cream"], ["J", "🧃", "Juice"], ["K", "🪁", "Kite"], ["L", "🦁", "Lion"],
+    ["M", "🌙", "Moon"], ["N", "👃", "Nose"], ["O", "🍊", "Orange"], ["P", "🐷", "Pig"],
+    ["Q", "👸", "Queen"], ["R", "🌧️", "Rain"], ["S", "☀️", "Sun"], ["T", "🌳", "Tree"],
+    ["U", "☂️", "Umbrella"], ["V", "🚐", "Van"], ["W", "💧", "Water"], ["X", "🦊", "Fox"],
+    ["Y", "🍠", "Yam"], ["Z", "🦓", "Zebra"]
+  ];
+  /* numbers: [digit, thing to count, number word, spoken name of the things] */
+  var NUM = [
+    ["1", "☀️", "One", "sun"], ["2", "👟", "Two", "shoes"], ["3", "🐟", "Three", "fish"],
+    ["4", "🚗", "Four", "cars"], ["5", "⭐", "Five", "stars"], ["6", "🥚", "Six", "eggs"],
+    ["7", "⚽", "Seven", "balls"], ["8", "🍎", "Eight", "apples"], ["9", "🌸", "Nine", "flowers"],
+    ["10", "🍌", "Ten", "bananas"],
+    ["11", "🍓", "Eleven", "strawberries"], ["12", "🐝", "Twelve", "bees"],
+    ["13", "🍪", "Thirteen", "biscuits"], ["14", "🦋", "Fourteen", "butterflies"],
+    ["15", "🎈", "Fifteen", "balloons"], ["16", "🐞", "Sixteen", "ladybirds"],
+    ["17", "🍊", "Seventeen", "oranges"], ["18", "🐥", "Eighteen", "chicks"],
+    ["19", "🍒", "Nineteen", "cherries"], ["20", "💛", "Twenty", "hearts"]
+  ];
+  var TRACKS = { abc: ABC, num: NUM };
+  var ROOMS = ["#ffc93c", "#6ec6ff", "#7dd87d", "#ff8a73", "#c3a6ff", "#5fe0c5"];
+
+  var el = function (id) { return document.getElementById(id); };
+  var root = document.documentElement;
+  var state = { track: "abc", order: [], pos: 0, mix: false, sound: true, seen: [] };
+  var items = ABC, N = ABC.length;
+
+  function straight() { var a = []; for (var i = 0; i < N; i++) a.push(i); return a; }
+  function shuffled() {
+    var a = straight();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function say(text) {
+    if (!state.sound || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-GB"; u.rate = 0.75; u.pitch = 1.15;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* no voice here: the card still works silently */ }
+  }
+
+  function phrase(c) {
+    if (state.track === "num") return c[2] + ". " + c[2] + " " + c[3] + ".";
+    return c[0] === "X" ? "X. X is in fox." : c[0] + ". " + c[0] + " is for " + c[2] + ".";
+  }
+
+  function wordHtml(c) {
+    var L = c[0], w = c[2];
+    var i = w.toUpperCase().indexOf(L);
+    if (i < 0) return w;
+    return w.slice(0, i) + "<b>" + w.charAt(i) + "</b>" + w.slice(i + 1);
+  }
+
+  function countHtml(c) {
+    var n = Number(c[0]), out = "";
+    for (var i = 1; i <= n; i++) {
+      out += c[1];
+      /* up to 10: two even rows; past 10: a full row of ten, then the rest */
+      if (n > 10 ? i === 10 : (n > 5 && i === Math.ceil(n / 2))) out += "<br>";
+    }
+    return out;
+  }
+
+  function render(speak) {
+    var done = state.pos >= N;
+    var num = state.track === "num";
+    var strip = el("strip").children;
+    for (var k = 0; k < N; k++) {
+      strip[k].className = (state.seen[k] ? "seen" : "") +
+        (!done && state.order[state.pos] === k ? " now" : "");
+    }
+    el("pic").className = "pic" + (num && !done ? " count" : "") +
+      (num && !done && state.order[state.pos] >= 10 ? " many" : "");
+    if (done) {
+      root.style.setProperty("--room", ROOMS[0]);
+      el("letters").innerHTML = "<span>🎉</span>";
+      el("pic").textContent = "⭐⭐⭐";
+      el("word").textContent = "You did it!";
+      el("hint").textContent = num ? "You counted to 20" : "All 26 letters";
+      el("next").textContent = "Play again ↻";
+      if (speak) say(num ? "Hooray! You did it! You can count to twenty!"
+                         : "Hooray! You did it! You know your A B C!");
+    } else {
+      var idx = state.order[state.pos], c = items[idx];
+      root.style.setProperty("--room", ROOMS[idx % ROOMS.length]);
+      if (num) {
+        el("letters").innerHTML = "<span>" + c[0] + "</span>";
+        el("pic").innerHTML = countHtml(c);
+        el("word").textContent = c[2];
+      } else {
+        el("letters").innerHTML = "<span>" + c[0] + '</span><span class="small">' + c[0].toLowerCase() + "</span>";
+        el("pic").textContent = c[1];
+        el("word").innerHTML = wordHtml(c);
+      }
+      el("hint").textContent = "Tap the card to hear it again";
+      el("next").textContent = "Next ▶";
+      if (speak) say(phrase(c));
+    }
+    var L = el("letters");
+    L.classList.remove("pop"); void L.offsetWidth; L.classList.add("pop");
+    el("track-abc").setAttribute("aria-pressed", String(!num));
+    el("track-num").setAttribute("aria-pressed", String(num));
+    el("mode-order").setAttribute("aria-pressed", String(!state.mix));
+    el("mode-mix").setAttribute("aria-pressed", String(state.mix));
+    el("sound").setAttribute("aria-pressed", String(state.sound));
+    el("sound").setAttribute("aria-label", state.sound ? "Voice on" : "Voice off");
+    el("sound").textContent = state.sound ? "🔊" : "🔇";
+  }
+
+  function mark() { if (state.pos < N) state.seen[state.order[state.pos]] = true; }
+
+  function buildStrip() {
+    var strip = el("strip");
+    strip.innerHTML = "";
+    root.style.setProperty("--cols", state.track === "num" ? 10 : 13);
+    items.forEach(function (c, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = c[0];
+      b.setAttribute("aria-label", "Go to " + c[0]);
+      b.addEventListener("click", function () {
+        state.pos = state.order.indexOf(i); mark(); render(true);
+      });
+      strip.appendChild(b);
+    });
+  }
+
+  function useTrack(t) {
+    state.track = TRACKS[t] ? t : "abc";
+    items = TRACKS[state.track]; N = items.length;
+    buildStrip();
+  }
+
+  function restart(mix) {
+    state.mix = mix;
+    state.order = mix ? shuffled() : straight();
+    state.pos = 0; state.seen = [];
+    mark();
+  }
+
+  function next() {
+    if (state.pos >= N) restart(state.mix); else { state.pos++; mark(); }
+    render(true);
+  }
+  function back() {
+    if (state.pos > 0) { state.pos--; render(true); }
+  }
+
+  function start(saved) {
+    var ok = saved && TRACKS[saved.track] && saved.order &&
+             saved.order.length === TRACKS[saved.track].length;
+    if (ok) { state = saved; useTrack(state.track); }
+    else { useTrack("abc"); restart(false); }
+
+    el("next").addEventListener("click", next);
+    el("back").addEventListener("click", back);
+    el("card").addEventListener("click", function () { render(true); });
+    el("track-abc").addEventListener("click", function () { useTrack("abc"); restart(state.mix); render(true); });
+    el("track-num").addEventListener("click", function () { useTrack("num"); restart(state.mix); render(true); });
+    el("mode-order").addEventListener("click", function () { restart(false); render(true); });
+    el("mode-mix").addEventListener("click", function () { restart(true); render(true); });
+    el("sound").addEventListener("click", function () {
+      state.sound = !state.sound;
+      if (!state.sound && "speechSynthesis" in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+      render(state.sound);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.target && e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) return;
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") { e.preventDefault(); next(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); back(); }
+    });
+
+    render(false);
+  }
+
+  /* Remember where we were, so an accidental refresh does not lose the place. */
+  var KEY = "abc-tap-state";
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  addEventListener("pagehide", save);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) save(); });
+  start(saved);
+
+  /* Offline support (needs http/https, so it is skipped when the file is opened from Finder). */
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+})();
+</script>
+</body>
+</html>

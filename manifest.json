@@ -1,0 +1,17 @@
+{
+  "name": "ABC Tap",
+  "short_name": "ABC Tap",
+  "description": "Tap the big button to step through the alphabet and the numbers 1 to 20. A first letters and counting game for three-year-olds.",
+  "id": "./index.html",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffc93c",
+  "theme_color": "#ffc93c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["education", "games", "kids"]
+}
