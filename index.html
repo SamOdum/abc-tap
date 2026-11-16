@@ -195,19 +195,29 @@ button:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; }
     return a;
   }
 
-  function say(text) {
+  /* Speaks one or more parts in turn, with a short pause between them: "A" ... "A is for Apple." */
+  var PAUSE = 700, sayId = 0, sayTimer = null, sayKeep = null;
+  function say(parts) {
+    if (typeof parts === "string") parts = [parts];
+    clearTimeout(sayTimer);
+    var id = ++sayId;
     if (!state.sound || !("speechSynthesis" in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = "en-GB"; u.rate = 0.75; u.pitch = 1.15;
-      window.speechSynthesis.speak(u);
-    } catch (e) { /* no voice here: the card still works silently */ }
+    try { window.speechSynthesis.cancel(); } catch (e) { return; }
+    (function go(i) {
+      if (id !== sayId || !state.sound || i >= parts.length) return;
+      try {
+        var u = new SpeechSynthesisUtterance(parts[i]);
+        u.lang = "en-GB"; u.rate = 0.75; u.pitch = 1.15;
+        u.onend = function () { sayTimer = setTimeout(function () { go(i + 1); }, PAUSE); };
+        sayKeep = u; /* held so the browser does not drop it before onend fires */
+        window.speechSynthesis.speak(u);
+      } catch (e) { /* no voice here: the card still works silently */ }
+    })(0);
   }
 
   function phrase(c) {
-    if (state.track === "num") return c[2] + " " + c[3] + ".";
-    return c[0] === "X" ? "X is in fox." : c[0] + " is for " + c[2] + ".";
+    if (state.track === "num") return [c[2] + ".", c[2] + " " + c[3] + "."];
+    return [c[0] + ".", c[0] === "X" ? "X is in fox." : c[0] + " is for " + c[2] + "."];
   }
 
   function wordHtml(c) {
