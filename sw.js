@@ -1,6 +1,6 @@
 // ABC Tap service worker: makes the game work offline once it has been opened online.
 // Bump the version in CACHE whenever you change a file, so installed copies pick up the update.
-const CACHE = 'abc-tap-v1';
+const CACHE = 'abc-tap-v2';
 const CORE = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png',
   './fonts/andika-700-latin.woff2', './fonts/baloo2-latin.woff2'];
 

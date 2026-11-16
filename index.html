@@ -206,8 +206,8 @@ button:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; }
   }
 
   function phrase(c) {
-    if (state.track === "num") return c[2] + ". " + c[2] + " " + c[3] + ".";
-    return c[0] === "X" ? "X. X is in fox." : c[0] + ". " + c[0] + " is for " + c[2] + ".";
+    if (state.track === "num") return c[2] + " " + c[3] + ".";
+    return c[0] === "X" ? "X is in fox." : c[0] + " is for " + c[2] + ".";
   }
 
   function wordHtml(c) {
